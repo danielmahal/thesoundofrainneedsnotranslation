@@ -1,0 +1,117 @@
+<html>
+	<head>
+		<title>evolution</title>
+		<style>
+			body { margin: 0; }
+			canvas { display: block; width: 100%; height: 100%; }
+		</style>
+	</head>
+	<body>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r78/three.min.js"></script>
+    <script src="noise.js"></script>
+		<script>
+			const scene = new THREE.Scene()
+			const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
+
+			const renderer = new THREE.WebGLRenderer()
+      const textureLoader = new THREE.TextureLoader()
+
+			document.body.appendChild(renderer.domElement)
+
+      const center = new THREE.Vector3(0, 0, 0)
+
+			camera.position.z = 2
+      camera.lookAt(center)
+
+      const particleGeometry = new THREE.Geometry()
+      const particleMaterial = new THREE.PointsMaterial({
+        color: 0xFFFFFF,
+        size: 0.02
+      })
+
+      textureLoader.load('circle-512.png', texture => {
+        particleMaterial.map = texture
+        particleMaterial.needsUpdate = true
+      })
+
+      for (var p = 0; p < 200; p++) {
+        const particle = new THREE.Vector3(
+          Math.random() - 0.5,
+          Math.random() - 0.5,
+          Math.random() - 0.5
+        ).normalize().setLength(Math.random())
+
+        particle.velocity = new THREE.Vector3(
+          Math.random() - 0.5,
+          Math.random() - 0.5,
+          Math.random() - 0.5
+        ).normalize().setLength(0.001)
+
+        particleGeometry.vertices.push(particle)
+      }
+
+      const particles = new THREE.Points(particleGeometry, particleMaterial)
+
+      particleGeometry.dynamic = true
+
+      scene.add(particles)
+
+      scene.fog = new THREE.FogExp2(0x000000, 0.4);
+
+      function applyForce(particle, force) {
+        particle.add(force)
+      }
+
+      function centerAttraction(particle) {
+        // particle.velocity.add(center.clone().sub(particle).multiplyScalar(0.0001))
+      }
+
+      function attract(p1, p2) {
+        const distance = p1.distanceTo(p2)
+        const force = Math.max(0, 0.001 - Math.pow(distance, 2) * 0.1)
+        applyForce(p1, p2.clone().sub(p1).multiplyScalar(force))
+        applyForce(p2, p1.clone().sub(p2).multiplyScalar(force))
+      }
+
+      function repulse(p1, p2) {
+        const distance = p1.distanceTo(p2)
+        const force = -Math.max(0, 0.001 - Math.pow(distance, 4) * 0.1)
+        applyForce(p1, p2.clone().sub(p1).multiplyScalar(force))
+        applyForce(p2, p1.clone().sub(p2).multiplyScalar(force))
+      }
+
+			function render(time=Date.now()) {
+				requestAnimationFrame(render)
+
+        particles.geometry.vertices.forEach(particle => {
+          const t = time / 5000
+          const x = noise.perlin2(particle.x, t)
+          const y = noise.perlin2(particle.y, t + Math.PI / 3)
+          const z = noise.perlin2(particle.z, t + Math.PI / 7)
+
+          const force = new THREE.Vector3(x, y, z).normalize().multiplyScalar(0.001)
+
+          centerAttraction(particle)
+          applyForce(particle, force)
+          // particle.velocity.multiplyScalar(0.98)
+          particle.add(particle.velocity)
+        })
+
+        particles.geometry.verticesNeedUpdate = true
+
+				renderer.render(scene, camera)
+			}
+
+      function resize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight)
+      }
+
+      window.addEventListener('resize', resize)
+
+      resize()
+      render()
+		</script>
+	</body>
+</html>
